@@ -4,12 +4,25 @@ import FilterSideBar from '../components/Products/FilterSideBar'
 import { useRef } from 'react'
 import SortOptions from '../components/Products/SortOptions'
 import ProductGrid from '../components/Products/ProductGrid'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
+import { fetchProductsByFilters } from '../redux/slices/productSlice'
 
 const CollectionPage = () => {
+    
+    const {collection} = useParams();
+    const [searchParams] = useSearchParams();
+    const dispatch = useDispatch()
+    const {products, loading, error} = useSelector((state)=>state.products)
+    const queryParams = Object.fromEntries([...searchParams])
 
-    const [products, setProducts] = useState([])
     const sideBarRef = useRef(null);
     const [isSideBarOpen, setIsSideBarOpen] = useState(false)
+
+    useEffect(() => {
+    dispatch(fetchProductsByFilters({ collection, ...queryParams }));
+}, [dispatch, collection, searchParams]);
+    
 
     const toggleSideBar = ()=>{
         setIsSideBarOpen(!isSideBarOpen)
@@ -31,57 +44,7 @@ const CollectionPage = () => {
         return ()=> document.removeEventListener("mousedown", handlClickOutside) 
     },[])
 
-    // to populate products
-    useEffect(()=>{
-        
-        setTimeout(()=>{
-            const fetchedProducts = [
-        {
-        _id :"1",
-        name:"stylish jacket",
-        price:120,
-        images:[
-            {
-                url:"https://picsum.photos/500/500?random=1",
-                altText:"Stylish jacket"
-            }
-        ]
-    },
-    {
-        _id :"2",
-        name:"stylish jacket",
-        price:120,
-        images:[
-            {
-                url:"https://picsum.photos/500/500?random=2",
-                altText:"Stylish jacket"
-            }
-        ]
-    },{
-        _id :"3",
-        name:"stylish jacket",
-        price:120,
-        images:[
-            {
-                url:"https://picsum.photos/500/500?random=3",
-                altText:"Stylish jacket"
-            }
-        ]
-    },{
-        _id :"4",
-        name:"stylish jacket",
-        price:120,
-        images:[
-            {
-                url:"https://picsum.photos/500/500?random=4",
-                altText:"Stylish jacket"
-            }
-        ]
-    },
-]
-    setProducts(fetchedProducts)
-}, 1000)
-    },[])
+
   return (
     <div className="flex flex-col lg:flex-row">
         {/* mobile filter button */}
@@ -106,7 +69,7 @@ const CollectionPage = () => {
 
 
             {/* product grid */}
-            <ProductGrid products={products}/>
+            <ProductGrid products={products} loading={loading} error={error}/>
 
         </div>
     </div>

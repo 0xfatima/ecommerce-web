@@ -1,22 +1,18 @@
-import React, { useState } from 'react'
+import React, { use, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PaypalButton from './PaypalButton'
-
-const cart = {products: [
-        {
-            productId:1, name:"T-shirt", size :"M", color:"Red", quantity:'1', price:15, 
-            image:"https://picsum.photos/200?random=1"
-        },
-        {
-            productId:2, name:"T-shirt2", size :"M", color:"Blue", quantity:'1', price:15, 
-            image:"https://picsum.photos/200?random=5"
-        }
-    ],totalPrice:195
-}
+import {useDispatch, useSelector} from "react-redux"
+import {createCheckout} from "../../redux/slices/checkoutSlice"
+import axios from 'axios'
 
 const Checkout = () => {
 
+
     const navigate = useNavigate()
+    const dispatch = useDispatch();
+    const {cart, loading, error} = useSelector((state)=> state.cart)
+    const {user} = useSelector((state)=> state.auth)
+
     const [shippingAddress, setShippingAddress] = useState({
         firstName:"",
         lastName:"",
@@ -27,18 +23,78 @@ const Checkout = () => {
         phone:""
     })
 
+    // ensure acrt is loaded before proceeding 
+    useEffect(()=> {
+        if(!cart || !cart.products ||    cart.products.length === 0){
+            navigate("/")
+        }
+    }, [cart, navigate])
+
     const [checkoutId, setCheckoutId] = useState(null)
 
-    const handleCreateCheckout = (e) => {
+    const handleCreateCheckout = async (e) => {
         e.preventDefault()
-        setCheckoutId("123")
+        if(cart && cart.products.length > 0){
+            const res = await dispatch(createCheckout({
+                checkoutItems:cart.products,
+                shippingAddress,
+                PaymentMethod,
+                totalPrice: cart.totalPrice
+            }))
+            if(res.payload && res.payload._id){
+                setCheckoutId(res.payload._id) // set checlout id if  checkout was successful 
+            }
+
+        }
     }
-    const handlePaymentSuccess = (details) =>{
-        console.log("payment successful", details);
-        navigate("/order-confirmation   ")
+    const handlePaymentSuccess = async (details) =>{
         
+        try {
+            const response = await axios.put(
+                `${import.meta.env.VITE_BACKEND_URL}/api/checkout/${checkoutId}/pay`,
+                {paymentStatus: "paid", paymentDetails: details},
+                {
+                    headers:{
+                        Authorization:`Bearer ${localStorage.getItem(userToken)}`
+                    }
+                }
+            );
+
+            
+                await handleFinalizeCheckout(checkoutId) // finalize checkout if payment is successful
+           
+        } catch (error) {
+                console.error(error);
+                
+        }
+
     }
- 
+
+    const handleFinalizeCheckout = async (checkoutId)=>{
+        try {
+            const response = await axios.post(
+                `${import.meta.env.VITE_BACKEND_URL}/finalize`,
+                {}, {
+                    headers:{
+                        Authorization: `Bearer ${localStorage.getItem("userToken")}`
+                    }
+                }
+            )
+            
+                navigate("/order-confirmation")
+            
+        } catch (error) {
+            console.error(error);
+            
+        }
+    }
+
+    if(loading) return <p>Loading cart ...</p>
+    if(error) return <p>Error: {error}</p>
+    if(!cart || !cart.products || cart.products.length === 0){
+        return <p>Your cart is empty</p>
+    }
+
   return (
     <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto 
     py-10 px-6 tracking-tighter'>
@@ -51,7 +107,7 @@ const Checkout = () => {
                 <div className='mb-4'>
                     <label htmlFor="" className='block text-gray-700'>Email</label>
                     <input type="email"
-                    value="useExample@gmail.com"
+                    value={user? user.email: ""}
                     className='w-full p-2 border rounded'
                     disabled //so user cannot enter emial other than the one they added while making account
                     />
